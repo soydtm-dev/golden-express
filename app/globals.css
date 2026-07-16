@@ -1,26 +1,92 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-geist-sans), Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+
+  /* Overriding default Tailwind gray & slate hues to eliminate blue tint completely */
+  --color-gray-950: #040405;
+  --color-gray-900: #09090b;
+  --color-gray-850: #0e0e11;
+  --color-gray-800: #141419;
+  --color-gray-750: #1b1b22;
+  --color-gray-700: #24242e;
+  --color-gray-600: #383848;
+  --color-gray-500: #68687a;
+  --color-gray-400: #9c9cb0;
+  --color-gray-300: #c8c8d8;
+  --color-gray-250: #e2e2ec;
+  --color-gray-200: #ededf5;
+  --color-gray-100: #f7f7fa;
+
+  --color-slate-950: #040405;
+  --color-slate-900: #09090b;
+  --color-slate-800: #141419;
+  --color-slate-700: #24242e;
+
+  /* Premium Metallic Gold Palette (matching Logo) */
+  --color-gold-50: #fffdf0;
+  --color-gold-100: #fef8c3;
+  --color-gold-200: #fef08a;
+  --color-gold-300: #fde047;
+  --color-gold-400: #ffd700;
+  --color-gold-450: #f5b81a;
+  --color-gold-500: #e5ba42;
+  --color-gold-600: #d4af37;
+  --color-gold-700: #b8860b;
+  --color-gold-800: #946908;
+  --color-gold-900: #735006;
+  --color-gold-950: #422d02;
+
+  /* True Pitch Black & Warm Obsidian Palette matching Logo background */
+  --color-dark-bg: #040405;
+  --color-dark-card: #09090b;
+  --color-dark-border: #1a1a22;
+  --color-dark-accent: #242430;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #040405;
+  --foreground: #f7f7fa;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom metallic gold gradient utility */
+.bg-gold-gradient {
+  background: linear-gradient(135deg, #ffd700 0%, #e5ba42 50%, #b8860b 100%);
+}
+
+.text-gold-gradient {
+  background: linear-gradient(135deg, #ffe57f 0%, #ffd700 40%, #e5ba42 70%, #b8860b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom premium scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090a0d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #242838;
+  border-radius: 9999px;
+  border: 2px solid #090a0d;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d4af37;
 }
