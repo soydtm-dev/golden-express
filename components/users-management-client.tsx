@@ -84,8 +84,16 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
 
     } catch (err: any) {
       console.error("Error al invitar repartidor:", err);
-      setError(err.message || "No se pudo completar el proceso de invitación.");
-      showToast(err.message || "Error al enviar invitación.", "error");
+      const isServerActionError = 
+        err?.message?.includes("Server Action") || 
+        err?.message?.includes("was not found on the server");
+
+      const errorMessage = isServerActionError
+        ? "Se ha desplegado una nueva versión en Vercel. Por favor recarga la página (F5) para sincronizar y reintenta."
+        : (err.message || "No se pudo completar el proceso de invitación.");
+
+      setError(errorMessage);
+      showToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
