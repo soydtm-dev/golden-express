@@ -66,30 +66,30 @@ export default function CourierCard({ courier }: CourierCardProps) {
   };
 
   return (
-    <div className="group relative bg-dark-card border border-gray-800 hover:border-gold-500/30 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(245,158,11,0.06)] flex flex-col justify-between h-56 overflow-hidden">
+    <div className="group relative bg-dark-card border border-gray-800 hover:border-gold-500/30 rounded-2xl p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(245,158,11,0.06)] flex flex-col justify-between min-h-52.5 sm:h-56 overflow-hidden">
       {/* Luz de fondo sutil al hacer hover */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-gold-500/0 via-gold-500/0 to-gold-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-tr from-gold-500/0 via-gold-500/0 to-gold-500/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
       <div>
         {/* Fila superior: Estado e Iniciales */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center font-bold text-gold-500 border border-gray-700/50">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gray-800 flex items-center justify-center font-bold text-gold-500 border border-gray-700/50 text-sm">
             {courier.name.split(" ").map((n) => n[0]).join("")}
           </div>
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.badgeClass}`}>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-medium border ${statusConfig.badgeClass}`}>
             <span className={`w-2 h-2 rounded-full ${statusConfig.dotClass}`} />
             {statusConfig.label}
           </span>
         </div>
 
         {/* Info del Repartidor */}
-        <h3 className="text-lg font-bold text-gray-100 group-hover:text-gold-400 transition-colors duration-200">
+        <h3 className="text-base sm:text-lg font-bold text-gray-100 group-hover:text-gold-400 transition-colors duration-200 truncate">
           {courier.name}
         </h3>
         
-        <div className="flex items-center gap-2 mt-2 text-gray-400 text-sm">
+        <div className="flex items-center gap-2 mt-1.5 sm:mt-2 text-gray-400 text-xs sm:text-sm">
           {getVehicleIcon(courier.vehicle_info)}
-          <span className="truncate max-w-[200px]" title={courier.vehicle_info}>
+          <span className="truncate max-w-45 sm:max-w-50" title={courier.vehicle_info}>
             {courier.vehicle_info}
           </span>
         </div>
@@ -99,13 +99,13 @@ export default function CourierCard({ courier }: CourierCardProps) {
       <button
         onClick={handleStartChat}
         disabled={courier.status === "desconectado"}
-        className={`w-full font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all mt-4 border ${
+        className={`w-full font-bold py-2 px-3 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm active:scale-[0.98] transition-all mt-3 sm:mt-4 border ${
           courier.status === "desconectado"
             ? "bg-gray-800/40 text-gray-500 border-gray-800 cursor-not-allowed shadow-none"
-            : "bg-gold-500 text-gray-900 border-gold-500 hover:bg-gold-600 cursor-pointer shadow-[0_4px_12px_rgba(245,158,11,0.15)] hover:shadow-[0_4px_20px_rgba(245,158,11,0.3)]"
+            : "bg-gold-500 text-gray-900 border-gold-500 hover:bg-gold-600 cursor-pointer shadow-[0_2px_8px_rgba(245,158,11,0.15)] hover:shadow-[0_4px_20px_rgba(245,158,11,0.3)]"
         }`}
       >
-        <MessageSquare className="w-4 h-4 font-bold" />
+        <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 font-bold shrink-0" />
         <span>{courier.status === "desconectado" ? "No Disponible" : "Iniciar Chat"}</span>
       </button>
     </div>

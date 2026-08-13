@@ -93,15 +93,15 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto h-full flex flex-col overflow-hidden">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto h-full flex flex-col overflow-hidden">
       {/* Cabecera */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 shrink-0">
         <div>
-          <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
-            <HistoryIcon className="w-5 h-5 text-gold-500" />
+          <h2 className="text-lg sm:text-xl font-bold text-gray-100 flex items-center gap-2">
+            <HistoryIcon className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-gold-500" />
             <span>Historial de Envíos</span>
           </h2>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">
             Registro de todas las entregas coordinadas y pedidos guardados en el sistema.
           </p>
         </div>
@@ -116,13 +116,13 @@ export default function HistoryPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por calle, cliente o repartidor..."
-            className="w-full bg-gray-900 border border-gray-805 rounded-xl pl-9 pr-4 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gold-500/50"
+            className="w-full bg-gray-900 border border-gray-805 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gold-500/50"
           />
         </div>
       </div>
 
       {/* Contenedor Principal */}
-      <div className="flex-1 min-h-0 bg-dark-card border border-gray-900 rounded-3xl overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 bg-dark-card border border-gray-900 rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col">
         {loading ? (
           /* Esqueleto de Carga */
           <div className="flex-1 flex flex-col items-center justify-center py-20 space-y-3">
@@ -136,7 +136,7 @@ export default function HistoryPage() {
               <AlertCircle className="w-6 h-6 text-red-400" />
             </div>
             <h4 className="text-sm font-semibold text-gray-200">Error al cargar datos</h4>
-            <p className="text-xs text-gray-500 mt-1 max-w-[280px]">{error}</p>
+            <p className="text-xs text-gray-500 mt-1 max-w-70">{error}</p>
           </div>
         ) : filteredOrders.length === 0 ? (
           /* Estado Vacío (Empty State) */
@@ -145,22 +145,22 @@ export default function HistoryPage() {
               <FileSpreadsheet className="w-6 h-6 text-gold-500/40" />
             </div>
             <h4 className="text-sm font-semibold text-gray-200">Aún no hay pedidos registrados</h4>
-            <p className="text-xs text-gray-500 mt-1 max-w-[280px]">
+            <p className="text-xs text-gray-500 mt-1 max-w-70">
               Los pedidos registrados por los repartidores aparecerán listados aquí en orden cronológico.
             </p>
           </div>
         ) : (
           /* Data Table con Scroll */
           <div className="flex-1 overflow-x-auto overflow-y-auto scrollbar-thin">
-            <table className="w-full text-left border-collapse min-w-[700px]">
+            <table className="w-full text-left border-collapse min-w-162.5">
               <thead>
                 <tr className="border-b border-gray-900 bg-gray-950/30 text-[10px] font-bold text-gray-500 uppercase tracking-wider sticky top-0 backdrop-blur-md z-10">
-                  <th className="px-6 py-4.5">Fecha y Hora</th>
-                  <th className="px-6 py-4.5">Repartidor</th>
-                  <th className="px-6 py-4.5">Origen</th>
-                  <th className="px-6 py-4.5">Destino</th>
-                  <th className="px-6 py-4.5 text-right">Precio</th>
-                  <th className="px-6 py-4.5 text-center">Estado</th>
+                  <th className="px-4 sm:px-6 py-3.5 sm:py-4.5">Fecha y Hora</th>
+                  <th className="px-4 sm:px-6 py-3.5 sm:py-4.5">Repartidor</th>
+                  <th className="px-4 sm:px-6 py-3.5 sm:py-4.5">Origen</th>
+                  <th className="px-4 sm:px-6 py-3.5 sm:py-4.5">Destino</th>
+                  <th className="px-4 sm:px-6 py-3.5 sm:py-4.5 text-right">Precio</th>
+                  <th className="px-4 sm:px-6 py-3.5 sm:py-4.5 text-center">Estado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-900/60 bg-gray-900/10">
@@ -170,7 +170,7 @@ export default function HistoryPage() {
                     className="hover:bg-gray-800/15 transition-colors group text-xs text-gray-300"
                   >
                     {/* Fecha y Hora */}
-                    <td className="px-6 py-4.5 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-3.5 sm:py-4.5 whitespace-nowrap">
                       <div className="flex items-center gap-2 font-medium text-gray-250">
                         <Calendar className="w-3.5 h-3.5 text-gray-500" />
                         <span>{formatDateTime(order.created_at)}</span>
@@ -178,19 +178,19 @@ export default function HistoryPage() {
                     </td>
 
                     {/* Repartidor */}
-                    <td className="px-6 py-4.5 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-3.5 sm:py-4.5 whitespace-nowrap">
                       <span className="font-bold text-gray-200">
                         {order.couriers?.name || "Sin repartidor"}
                       </span>
                     </td>
 
                     {/* Origen */}
-                    <td className="px-6 py-4.5 max-w-[200px] truncate" title={order.origin}>
+                    <td className="px-4 sm:px-6 py-3.5 sm:py-4.5 max-w-40 sm:max-w-50 truncate" title={order.origin}>
                       <span className="text-gray-400">{order.origin}</span>
                     </td>
 
                     {/* Destino */}
-                    <td className="px-6 py-4.5 max-w-[200px] truncate" title={order.destination}>
+                    <td className="px-4 sm:px-6 py-3.5 sm:py-4.5 max-w-40 sm:max-w-50 truncate" title={order.destination}>
                       <div className="flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-gold-550 shrink-0" />
                         <span className="text-gray-400">{order.destination}</span>
@@ -198,12 +198,12 @@ export default function HistoryPage() {
                     </td>
 
                     {/* Precio */}
-                    <td className="px-6 py-4.5 text-right whitespace-nowrap font-bold text-gold-400">
+                    <td className="px-4 sm:px-6 py-3.5 sm:py-4.5 text-right whitespace-nowrap font-bold text-gold-400">
                       <span>Bs. {order.price.toFixed(2)}</span>
                     </td>
 
                     {/* Estado */}
-                    <td className="px-6 py-4.5 text-center whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-3.5 sm:py-4.5 text-center whitespace-nowrap">
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm">
                         <CheckCircle2 className="w-2.5 h-2.5" />
                         <span>Coordinado</span>

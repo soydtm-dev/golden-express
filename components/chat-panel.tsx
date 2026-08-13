@@ -226,17 +226,17 @@ export default function ChatPanel() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end max-w-[calc(100vw-2rem)]">
       {/* Ventana de Chat */}
       {isOpen && (
-        <div className="mb-4 w-[350px] sm:w-[400px] h-[500px] rounded-2xl bg-dark-card border border-gold-500/20 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300 backdrop-blur-lg">
+        <div className="mb-3 sm:mb-4 w-[calc(100vw-2rem)] sm:w-100 max-w-100 h-[75vh] max-h-130 sm:h-125 rounded-2xl bg-dark-card border border-gold-500/20 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300 backdrop-blur-lg">
           {/* Header */}
           <div className="bg-gray-800/80 px-4 py-3 flex items-center justify-between border-b border-gray-700/50">
             <div className="flex items-center gap-3">
               {selectedCourier ? (
                 <>
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-gold-600 to-gold-400 flex items-center justify-center font-bold text-gray-900 text-sm">
+                    <div className="w-10 h-10 rounded-full bg-linear-to-tr from-gold-600 to-gold-400 flex items-center justify-center font-bold text-gray-900 text-sm">
                       {selectedCourier.name.split(" ").map(n => n[0]).join("")}
                     </div>
                     <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-dark-card ${
@@ -284,7 +284,7 @@ export default function ChatPanel() {
                 </div>
                 <div>
                   <h4 className="text-sm font-semibold text-gray-200">No hay conversación activa</h4>
-                  <p className="text-xs text-gray-500 mt-1 max-w-[200px]">
+                  <p className="text-xs text-gray-500 mt-1 max-w-50">
                     Selecciona un repartidor del grid para iniciar un chat directo con él.
                   </p>
                 </div>
@@ -366,7 +366,7 @@ export default function ChatPanel() {
                               : "bg-gold-500/5 text-gray-200 border border-gold-500/20 rounded-tl-none"
                           }`}
                         >
-                          <p className="break-words">{msg.content}</p>
+                          <p className="wrap-break-word">{msg.content}</p>
                         </div>
                         <div className="flex items-center gap-1 mt-1 px-1">
                           <span className="text-[9px] text-gray-500">
@@ -421,11 +421,11 @@ export default function ChatPanel() {
       {/* Botón Flotante (FAB) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 rounded-full bg-gold-500 text-gray-900 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.5)] hover:shadow-[0_0_25px_rgba(245,158,11,0.8)] transition-all hover:scale-110 active:scale-95 duration-300 relative group cursor-pointer"
+        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gold-500 text-gray-900 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.5)] hover:shadow-[0_0_25px_rgba(245,158,11,0.8)] transition-all hover:scale-110 active:scale-95 duration-300 relative group cursor-pointer"
       >
-        <MessageSquare className="w-6 h-6 transition-transform group-hover:rotate-12" />
+        <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 transition-transform group-hover:rotate-12" />
         {isOpen && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-dark-bg animate-pulse" />
+          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-500 rounded-full border-2 border-dark-bg animate-pulse" />
         )}
       </button>
     </div>

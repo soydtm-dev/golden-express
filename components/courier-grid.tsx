@@ -79,16 +79,17 @@ export default function CourierGrid() {
   }, []);
 
   // 1. Estado de carga inicial (Skeleton Screens dorados y elegantes)
+  // 1. Estado de carga inicial (Skeleton Screens dorados y elegantes)
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 w-full max-w-6xl mx-auto">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="relative bg-dark-card/60 border border-gray-800/80 rounded-2xl p-6 flex flex-col justify-between h-56 overflow-hidden animate-pulse"
+            className="relative bg-dark-card/60 border border-gray-800/80 rounded-2xl p-5 sm:p-6 flex flex-col justify-between min-h-55 sm:h-56 overflow-hidden animate-pulse"
           >
             {/* Destello dorado sutil */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-500/20 via-gold-500/40 to-gold-500/20" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-gold-500/20 via-gold-500/40 to-gold-500/20" />
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-10 h-10 rounded-xl bg-gray-800/80 border border-gray-700/50" />
@@ -121,12 +122,12 @@ export default function CourierGrid() {
   // 3. Estado vacío (Sin repartidores registrados)
   if (couriers.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center text-center py-16 px-4 bg-dark-card/40 border border-gray-800/50 rounded-3xl max-w-2xl mx-auto backdrop-blur-sm shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-        <div className="w-16 h-16 rounded-full bg-gold-500/5 flex items-center justify-center border border-gold-500/10 mb-4 animate-pulse">
-          <Shield className="w-8 h-8 text-gold-500/40" />
+      <div className="flex flex-col items-center justify-center text-center py-12 sm:py-16 px-4 bg-dark-card/40 border border-gray-800/50 rounded-3xl max-w-2xl mx-auto backdrop-blur-sm shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gold-500/5 flex items-center justify-center border border-gold-500/10 mb-4 animate-pulse">
+          <Shield className="w-7 h-7 sm:w-8 sm:h-8 text-gold-500/40" />
         </div>
-        <h3 className="text-xl font-bold text-gray-200">No hay repartidores disponibles</h3>
-        <p className="text-sm text-gray-400 mt-2 max-w-md leading-relaxed">
+        <h3 className="text-lg sm:text-xl font-bold text-gray-200">No hay repartidores disponibles</h3>
+        <p className="text-xs sm:text-sm text-gray-400 mt-2 max-w-md leading-relaxed">
           Actualmente no hay repartidores registrados en nuestra base de datos.
         </p>
       </div>
@@ -135,7 +136,7 @@ export default function CourierGrid() {
 
   // 4. Renderizado normal de la lista de repartidores
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 w-full max-w-6xl mx-auto">
       {couriers.map((courier) => (
         <CourierCard key={courier.id} courier={courier} />
       ))}

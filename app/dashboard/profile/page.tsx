@@ -104,32 +104,32 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="p-8 max-w-2xl mx-auto h-full overflow-y-auto scrollbar-thin">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
-          <User className="w-5 h-5 text-gold-500" />
+    <div className="p-4 sm:p-8 max-w-2xl mx-auto h-full overflow-y-auto scrollbar-thin">
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-100 flex items-center gap-2">
+          <User className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-gold-500" />
           <span>Mi Perfil de Repartidor</span>
         </h2>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">
           Actualiza tu nombre de contacto y los detalles del vehículo de entregas asignado.
         </p>
       </div>
 
       {loading ? (
         /* Estado de Carga */
-        <div className="bg-gray-800/40 border border-gray-700/30 rounded-3xl p-8 backdrop-blur-md flex flex-col items-center justify-center py-20 space-y-3">
+        <div className="bg-gray-800/40 border border-gray-700/30 rounded-2xl sm:rounded-3xl p-6 sm:p-8 backdrop-blur-md flex flex-col items-center justify-center py-16 sm:py-20 space-y-3">
           <Loader2 className="w-8 h-8 animate-spin text-gold-500" />
           <span className="text-xs text-gray-400 font-medium">Cargando datos de perfil...</span>
         </div>
       ) : (
         /* Tarjeta de Formulario */
-        <div className="bg-gray-800/40 border border-gray-700/30 rounded-3xl p-8 backdrop-blur-md shadow-xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="bg-gray-800/40 border border-gray-700/30 rounded-2xl sm:rounded-3xl p-5 sm:p-8 backdrop-blur-md shadow-xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           {/* Línea decorativa superior */}
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-gold-400 via-gold-500 to-gold-600" />
+          <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-gold-400 via-gold-500 to-gold-600" />
 
-          <form onSubmit={handleSaveProfile} className="space-y-6">
+          <form onSubmit={handleSaveProfile} className="space-y-4 sm:space-y-6">
             {/* Input Nombre */}
-            <div className="space-y-2">
+            <div className="space-y-1.5 sm:space-y-2">
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
                 Nombre Completo <span className="text-red-500">*</span>
               </label>
@@ -143,13 +143,13 @@ export default function ProfilePage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ej. Carlos Mendoza"
-                  className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-3 text-xs text-gray-150 placeholder-gray-600 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/10 transition-all"
+                  className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-xs text-gray-150 placeholder-gray-600 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/10 transition-all"
                 />
               </div>
             </div>
 
             {/* Input Teléfono */}
-            <div className="space-y-2">
+            <div className="space-y-1.5 sm:space-y-2">
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
                 Número de Teléfono <span className="text-red-500">*</span>
               </label>
@@ -163,13 +163,13 @@ export default function ProfilePage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Ej. +52 55 1234 5678"
-                  className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-3 text-xs text-gray-150 placeholder-gray-600 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/10 transition-all"
+                  className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-xs text-gray-150 placeholder-gray-600 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/10 transition-all"
                 />
               </div>
             </div>
 
             {/* Input Vehículo */}
-            <div className="space-y-2">
+            <div className="space-y-1.5 sm:space-y-2">
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
                 Información del Vehículo <span className="text-red-500">*</span>
               </label>
@@ -183,10 +183,10 @@ export default function ProfilePage() {
                   value={vehicleInfo}
                   onChange={(e) => setVehicleInfo(e.target.value)}
                   placeholder="Ej. Motocicleta Honda - Placa 1234"
-                  className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-3 text-xs text-gray-150 placeholder-gray-600 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/10 transition-all"
+                  className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-xs text-gray-150 placeholder-gray-600 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/10 transition-all"
                 />
               </div>
-              <p className="text-[9px] text-gray-550 pl-1 mt-1">
+              <p className="text-[9px] text-gray-555 pl-1 mt-1">
                 Consejo: Indica el tipo (moto, bici, auto) para que el icono del mapa coincida.
               </p>
             </div>
@@ -196,7 +196,7 @@ export default function ProfilePage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="bg-gold-500 text-gray-900 px-6 py-3 rounded-xl text-xs font-bold hover:bg-gold-600 active:scale-95 transition-all shadow-[0_2px_10px_rgba(245,158,11,0.2)] disabled:opacity-55 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto bg-gold-500 text-gray-900 px-6 py-2.5 sm:py-3 rounded-xl text-xs font-bold hover:bg-gold-600 active:scale-95 transition-all shadow-[0_2px_10px_rgba(245,158,11,0.2)] disabled:opacity-55 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
               >
                 {saving ? (
                   <>
@@ -217,13 +217,13 @@ export default function ProfilePage() {
 
       {/* Alerta Toast Flotante */}
       {toast.show && (
-        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl font-bold text-xs flex items-center gap-2.5 shadow-lg animate-in slide-in-from-bottom duration-300 ${
+        <div className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 max-w-[calc(100vw-2rem)] px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-xs flex items-center gap-2.5 shadow-lg animate-in slide-in-from-bottom duration-300 ${
           toast.type === "success" 
             ? "bg-emerald-500 text-gray-950 shadow-[0_4px_20px_rgba(16,185,129,0.35)]" 
             : "bg-red-500 text-gray-100 shadow-[0_4px_20px_rgba(239,68,68,0.35)]"
         }`}>
           {toast.type === "success" ? (
-            <Check className="w-4 h-4 stroke-[3]" />
+            <Check className="w-4 h-4 stroke-3" />
           ) : (
             <AlertCircle className="w-4 h-4" />
           )}
