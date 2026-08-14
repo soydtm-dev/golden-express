@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { MessageSquare, X, Send, Paperclip, Loader2, User, Phone, CheckCheck } from "lucide-react";
+import { MessageSquare, X, Send, Paperclip, Loader2, User, Phone, CheckCheck, AlertCircle, Clock } from "lucide-react";
 import { Courier, Message, ChatSession } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 
@@ -18,6 +18,9 @@ export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // Estado de tiempo de espera (3 minutos = 180s)
+  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -36,6 +39,34 @@ export default function ChatPanel() {
     };
   }, []);
 
+  // Manejador del temporizador de Cooldown (3 minutos tras cerrar el chat)
+  useEffect(() => {
+    if (!selectedCourier) {
+      setCooldownRemaining(0);
+      return;
+    }
+
+    const cooldownKey = `golden_express_cooldown_${selectedCourier.id}`;
+
+    const checkCooldown = () => {
+      const untilStr = localStorage.getItem(cooldownKey);
+      if (untilStr) {
+        const until = Number(untilStr);
+        const remaining = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+        setCooldownRemaining(remaining);
+        if (remaining <= 0) {
+          localStorage.removeItem(cooldownKey);
+        }
+      } else {
+        setCooldownRemaining(0);
+      }
+    };
+
+    checkCooldown();
+    const timer = setInterval(checkCooldown, 1000);
+    return () => clearInterval(timer);
+  }, [selectedCourier, sessionStatus]);
+
   // Manejar el cambio de repartidor: Verificar sesión local o reiniciar estados
   useEffect(() => {
     if (!selectedCourier) {
@@ -51,7 +82,6 @@ export default function ChatPanel() {
     const verifyStoredSession = async (sessId: string) => {
       try {
         setLoading(true);
-        // Verificar si la sesión guardada en localStorage sigue existiendo en Supabase (usando maybeSingle)
         const { data: session, error } = await supabase
           .from("chat_sessions")
           .select("*")
@@ -69,16 +99,22 @@ export default function ChatPanel() {
         setSessionId(session.id);
         setSessionStatus(session.status);
 
-        // Si la sesión sigue abierta, cargar su historial de mensajes
-        if (session.status === "abierto") {
-          const { data: msgs, error: msgsError } = await supabase
-            .from("messages")
-            .select("*")
-            .eq("chat_session_id", session.id)
-            .order("created_at", { ascending: true });
+        const { data: msgs, error: msgsError } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("chat_session_id", session.id)
+          .order("created_at", { ascending: true });
 
-          if (!msgsError) {
-            setMessages(msgs || []);
+        if (!msgsError) {
+          setMessages(msgs || []);
+        }
+
+        // Si la sesión está cerrada, establecer el cooldown de 3 minutos
+        if (session.status === "cerrado") {
+          localStorage.removeItem(`golden_express_session_${selectedCourier.id}`);
+          const cooldownKey = `golden_express_cooldown_${selectedCourier.id}`;
+          if (!localStorage.getItem(cooldownKey)) {
+            localStorage.setItem(cooldownKey, (Date.now() + 3 * 60 * 1000).toString());
           }
         }
       } catch (err) {
@@ -97,43 +133,83 @@ export default function ChatPanel() {
     }
   }, [selectedCourier]);
 
-  // Suscribirse en Tiempo Real (Realtime) a los cambios de la sesión y nuevos mensajes
+  // Suscribirse en Tiempo Real (Realtime + Polling de Respaldo)
   useEffect(() => {
-    if (!sessionId || sessionStatus !== "abierto") return;
+    if (!sessionId) return;
 
     const supabase = createClient();
 
-    /**
-     * 1. Canal de Realtime para Mensajes:
-     * Escucha eventos 'INSERT' en la tabla 'messages' filtrados por el ID de la sesión actual.
-     */
+    const syncMessages = async () => {
+      try {
+        const { data: msgs, error } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("chat_session_id", sessionId)
+          .order("created_at", { ascending: true });
+
+        if (!error && msgs) {
+          setMessages((prev) => {
+            const tempMsgs = prev.filter(
+              (m) => m.id.startsWith("temp-") && !msgs.some((rm) => rm.content === m.content && rm.sender === m.sender)
+            );
+            return [...msgs, ...tempMsgs];
+          });
+        }
+      } catch (err) {
+        console.error("Error en sincronización de mensajes:", err);
+      }
+    };
+
+    const syncSession = async () => {
+      try {
+        const { data: sess } = await supabase
+          .from("chat_sessions")
+          .select("status")
+          .eq("id", sessionId)
+          .maybeSingle();
+
+        if (sess && sess.status) {
+          setSessionStatus(sess.status);
+          if (sess.status === "cerrado" && selectedCourier) {
+            localStorage.removeItem(`golden_express_session_${selectedCourier.id}`);
+            const cooldownKey = `golden_express_cooldown_${selectedCourier.id}`;
+            if (!localStorage.getItem(cooldownKey)) {
+              localStorage.setItem(cooldownKey, (Date.now() + 3 * 60 * 1000).toString());
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error en sincronización de sesión:", err);
+      }
+    };
+
     const messagesChannel = supabase
-      .channel(`client-messages-${sessionId}`)
+      .channel(`client-messages-${sessionId}-${Date.now()}`)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "messages",
           filter: `chat_session_id=eq.${sessionId}`,
         },
         (payload) => {
-          const newMsg = payload.new as Message;
-          setMessages((prev) => {
-            // Evitar duplicar mensajes que fueron enviados optimistamente
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
+          if (payload.eventType === "INSERT") {
+            const newMsg = payload.new as Message;
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              const filtered = prev.filter(
+                (m) => !(m.id.startsWith("temp-") && m.content === newMsg.content && m.sender === newMsg.sender)
+              );
+              return [...filtered, newMsg];
+            });
+          }
         }
       )
       .subscribe();
 
-    /**
-     * 2. Canal de Realtime para la Sesión:
-     * Escucha eventos 'UPDATE' en la tabla 'chat_sessions' para detectar si el repartidor finaliza el chat.
-     */
     const sessionChannel = supabase
-      .channel(`client-session-${sessionId}`)
+      .channel(`client-session-${sessionId}-${Date.now()}`)
       .on(
         "postgres_changes",
         {
@@ -145,17 +221,28 @@ export default function ChatPanel() {
         (payload) => {
           const updatedSession = payload.new as ChatSession;
           setSessionStatus(updatedSession.status);
+          if (updatedSession.status === "cerrado" && selectedCourier) {
+            localStorage.removeItem(`golden_express_session_${selectedCourier.id}`);
+            const cooldownKey = `golden_express_cooldown_${selectedCourier.id}`;
+            if (!localStorage.getItem(cooldownKey)) {
+              localStorage.setItem(cooldownKey, (Date.now() + 3 * 60 * 1000).toString());
+            }
+          }
         }
       )
       .subscribe();
 
-    // Limpieza de las suscripciones al desmontar el componente para evitar fugas de memoria
+    const pollInterval = setInterval(() => {
+      syncMessages();
+      syncSession();
+    }, 2500);
+
     return () => {
-      console.log("Limpiando suscripciones Realtime en el cliente");
+      clearInterval(pollInterval);
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(sessionChannel);
     };
-  }, [sessionId, sessionStatus]);
+  }, [sessionId, selectedCourier]);
 
   // Scroll automático hacia el último mensaje recibido o enviado
   useEffect(() => {
@@ -164,10 +251,17 @@ export default function ChatPanel() {
     }
   }, [messages, isOpen]);
 
+  // Formato para el segundero del Cooldown M:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
   // Crear una sesión de chat inicial en la base de datos
   const handleStartChatSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCourier || !clientName.trim()) return;
+    if (!selectedCourier || !clientName.trim() || cooldownRemaining > 0) return;
 
     setLoading(true);
     try {
@@ -199,30 +293,59 @@ export default function ChatPanel() {
     }
   };
 
-  // Enviar un mensaje de chat
+  // Enviar un mensaje de chat con actualización optimista inmediata
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !sessionId || sessionStatus !== "abierto") return;
 
     const messageText = inputText.trim();
-    setInputText(""); // Limpieza optimista del campo de texto
+    setInputText("");
+
+    const optimisticMsg: Message = {
+      id: `temp-${Date.now()}-${Math.random()}`,
+      chat_session_id: sessionId,
+      sender: "cliente",
+      content: messageText,
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
       const supabase = createClient();
 
-      const { error } = await supabase
+      const { data: insertedMsg, error } = await supabase
         .from("messages")
         .insert({
           chat_session_id: sessionId,
           sender: "cliente",
           content: messageText
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      if (insertedMsg) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === optimisticMsg.id ? insertedMsg : m))
+        );
+      }
     } catch (err) {
       console.error("Error al enviar el mensaje:", err);
-      setInputText(messageText); // Restaurar texto si falla el insert
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+      setInputText(messageText);
     }
+  };
+
+  const handleResetChatSession = () => {
+    if (cooldownRemaining > 0) return;
+    if (selectedCourier) {
+      localStorage.removeItem(`golden_express_session_${selectedCourier.id}`);
+    }
+    setSessionId(null);
+    setSessionStatus(null);
+    setMessages([]);
   };
 
   return (
@@ -299,6 +422,18 @@ export default function ChatPanel() {
                   </p>
                 </div>
 
+                {cooldownRemaining > 0 && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-3 rounded-xl text-xs flex items-center gap-2.5 animate-in fade-in duration-200">
+                    <Clock className="w-4 h-4 text-amber-400 shrink-0 animate-spin" />
+                    <div>
+                      <span className="font-semibold block text-[11px]">Tiempo de espera activo:</span>
+                      <span className="text-[10px] text-amber-300/90">
+                        Debes esperar <strong className="font-mono font-bold text-amber-300">{formatTime(cooldownRemaining)} min</strong> para abrir un nuevo chat con este repartidor.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
                     Nombre Completo
@@ -313,7 +448,8 @@ export default function ChatPanel() {
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
                       placeholder="Juan Pérez"
-                      className="w-full bg-gray-950 border border-gray-805 rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-250 focus:outline-none focus:border-gold-500/50"
+                      disabled={cooldownRemaining > 0}
+                      className="w-full bg-gray-950 border border-gray-805 rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-250 focus:outline-none focus:border-gold-500/50 disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -331,16 +467,25 @@ export default function ChatPanel() {
                       value={clientPhone}
                       onChange={(e) => setClientPhone(e.target.value)}
                       placeholder="+54 9 11 1234-5678"
-                      className="w-full bg-gray-950 border border-gray-805 rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-250 focus:outline-none focus:border-gold-500/50"
+                      disabled={cooldownRemaining > 0}
+                      className="w-full bg-gray-950 border border-gray-805 rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-250 focus:outline-none focus:border-gold-500/50 disabled:opacity-50"
                     />
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-gold-500 text-gray-900 font-bold py-2.5 rounded-xl text-xs hover:bg-gold-600 active:scale-95 transition-all shadow-[0_2px_10px_rgba(245,158,11,0.15)] mt-2 cursor-pointer animate-in fade-in-50 duration-200"
+                  disabled={cooldownRemaining > 0}
+                  className="w-full bg-gold-500 text-gray-900 font-bold py-2.5 rounded-xl text-xs hover:bg-gold-600 active:scale-95 transition-all shadow-[0_2px_10px_rgba(245,158,11,0.15)] mt-2 cursor-pointer disabled:opacity-55 disabled:cursor-not-allowed animate-in fade-in-50 duration-200"
                 >
-                  Iniciar Chat
+                  {cooldownRemaining > 0 ? (
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 animate-spin" />
+                      <span>Disponible en {formatTime(cooldownRemaining)} min</span>
+                    </span>
+                  ) : (
+                    <span>Iniciar Chat</span>
+                  )}
                 </button>
               </form>
             ) : (
@@ -380,17 +525,38 @@ export default function ChatPanel() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Banner de Chat Finalizado por el Repartidor */}
+                {/* Banner de Chat Finalizado / Cerrado por el Repartidor con Cooldown */}
                 {sessionStatus === "cerrado" && (
-                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-center py-2.5 px-4 rounded-xl text-xs font-semibold animate-in fade-in duration-300">
-                    El repartidor ha finalizado la conversación.
+                  <div className="mt-3 bg-red-500/10 border border-red-500/20 text-red-400 text-center p-3 rounded-xl text-xs font-semibold flex flex-col items-center gap-2 animate-in fade-in duration-300 shrink-0">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <AlertCircle className="w-4 h-4 text-red-400" />
+                      <span>Esta conversación ha sido finalizada por el repartidor.</span>
+                    </div>
+                    <p className="text-[10px] text-red-300/80 font-normal">
+                      El chat está cerrado y no se pueden enviar más mensajes.
+                    </p>
+
+                    {cooldownRemaining > 0 ? (
+                      <div className="mt-1 flex items-center gap-2 px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-xs font-mono font-bold">
+                        <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                        <span>Nueva conversación en: {formatTime(cooldownRemaining)} min</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResetChatSession}
+                        className="mt-1 px-3.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+                      >
+                        Iniciar Nueva Conversación
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Formulario de Envío de Mensaje */}
+          {/* Formulario de Envío de Mensaje (Solo visible si el chat está ABIERTO) */}
           {sessionId && sessionStatus === "abierto" && !loading && (
             <form onSubmit={handleSendMessage} className="p-3 bg-gray-800/40 border-t border-gray-700/50 flex items-center gap-2 shrink-0">
               <button

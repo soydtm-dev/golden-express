@@ -3,21 +3,17 @@
 import React, { useState, useRef, useEffect } from "react";
 import { 
   Search, 
-  MapPin, 
   Send, 
   Paperclip, 
   CheckCheck, 
-  Navigation, 
-  Clock, 
-  MessageSquare,
   Phone,
   Check,
-  User,
   AlertCircle,
   Loader2,
   ClipboardList,
   X,
-  ArrowLeft
+  ArrowLeft,
+  MessageSquare
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { ChatSession, Message } from "@/types";
@@ -32,7 +28,7 @@ export default function DashboardPage() {
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Estados para el Modal de Registro de Pedidos (Fase 5)
+  // Estados para el Modal de Registro de Pedidos
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [orderOrigin, setOrderOrigin] = useState("");
   const [orderDestination, setOrderDestination] = useState("");
@@ -50,7 +46,7 @@ export default function DashboardPage() {
 
   const openOrderModal = () => {
     if (!selectedChat) return;
-    setOrderDestination(getMockAddress(selectedChat.customer_name));
+    setOrderDestination("");
     setOrderOrigin("");
     setOrderDescription("");
     setOrderPrice("");
@@ -93,19 +89,16 @@ export default function DashboardPage() {
 
       if (updateError) throw updateError;
 
-      // Notificación de éxito
       setToastMessage("Pedido registrado con éxito y chat finalizado.");
       setShowToast(true);
       setTimeout(() => setShowToast(false), 4000);
 
-      // Cerrar modal y limpiar formulario
       setIsOrderModalOpen(false);
       setOrderOrigin("");
       setOrderDestination("");
       setOrderDescription("");
       setOrderPrice("");
 
-      // Remover el chat de la lista activa del repartidor
       setChats((prev) => prev.filter((c) => c.id !== selectedChatId));
       setSelectedChatId(null);
     } catch (err: any) {
@@ -128,7 +121,7 @@ export default function DashboardPage() {
     getAuthUser();
   }, []);
 
-  // 2. Cargar sesiones de chat activas y suscribirse en tiempo real
+  // 2. Cargar sesiones de chat activas, suscribirse a Realtime y habilitar polling
   useEffect(() => {
     if (!userId) return;
 
@@ -136,7 +129,6 @@ export default function DashboardPage() {
 
     const fetchActiveSessions = async () => {
       try {
-        setLoadingChats(true);
         const { data, error } = await supabase
           .from("chat_sessions")
           .select("*")
@@ -145,7 +137,9 @@ export default function DashboardPage() {
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setChats(data || []);
+        if (data) {
+          setChats(data);
+        }
       } catch (err) {
         console.error("Error al cargar las sesiones de chat:", err);
       } finally {
@@ -156,11 +150,10 @@ export default function DashboardPage() {
     fetchActiveSessions();
 
     /**
-     * Suscripción Realtime a eventos INSERT y UPDATE en chat_sessions
-     * Filtrado por el ID del repartidor logueado.
+     * Canal Realtime para eventos en chat_sessions
      */
     const sessionChannel = supabase
-      .channel(`courier-sessions-${userId}`)
+      .channel(`courier-sessions-${userId}-${Date.now()}`)
       .on(
         "postgres_changes",
         {
@@ -170,7 +163,6 @@ export default function DashboardPage() {
           filter: `courier_id=eq.${userId}`,
         },
         (payload) => {
-          console.log("Cambio en sesión de chat detectado en dashboard:", payload);
           if (payload.eventType === "INSERT") {
             const newSession = payload.new as ChatSession;
             if (newSession.status === "abierto") {
@@ -182,9 +174,7 @@ export default function DashboardPage() {
           } else if (payload.eventType === "UPDATE") {
             const updatedSession = payload.new as ChatSession;
             if (updatedSession.status === "cerrado") {
-              // Quitar de la lista activa
               setChats((prev) => prev.filter((s) => s.id !== updatedSession.id));
-              // Si es el chat activo, deseleccionarlo
               setSelectedChatId((currentId) => currentId === updatedSession.id ? null : currentId);
             } else {
               setChats((prev) =>
@@ -196,14 +186,18 @@ export default function DashboardPage() {
       )
       .subscribe();
 
-    // Limpiar canal al desmontar
+    // Polling de Respaldo para Sesiones (cada 3 segundos)
+    const sessionsInterval = setInterval(() => {
+      fetchActiveSessions();
+    }, 3000);
+
     return () => {
-      console.log("Limpiando canal de sesiones del repartidor");
+      clearInterval(sessionsInterval);
       supabase.removeChannel(sessionChannel);
     };
   }, [userId]);
 
-  // 3. Cargar mensajes del chat seleccionado y suscribirse en tiempo real
+  // 3. Cargar mensajes del chat seleccionado, suscribirse a Realtime y habilitar polling
   useEffect(() => {
     if (!selectedChatId) {
       setMessages([]);
@@ -214,7 +208,6 @@ export default function DashboardPage() {
 
     const fetchMessages = async () => {
       try {
-        setLoadingMessages(true);
         const { data, error } = await supabase
           .from("messages")
           .select("*")
@@ -222,7 +215,14 @@ export default function DashboardPage() {
           .order("created_at", { ascending: true });
 
         if (error) throw error;
-        setMessages(data || []);
+        if (data) {
+          setMessages((prev) => {
+            const tempMsgs = prev.filter(
+              (m) => m.id.startsWith("temp-") && !data.some((rm) => rm.content === m.content && rm.sender === m.sender)
+            );
+            return [...data, ...tempMsgs];
+          });
+        }
       } catch (err) {
         console.error("Error al obtener mensajes:", err);
       } finally {
@@ -230,35 +230,44 @@ export default function DashboardPage() {
       }
     };
 
+    setLoadingMessages(true);
     fetchMessages();
 
     /**
-     * Suscripción Realtime a eventos INSERT en messages para la sesión activa.
+     * Canal Realtime para mensajes de la sesión activa
      */
     const messagesChannel = supabase
-      .channel(`active-messages-${selectedChatId}`)
+      .channel(`active-messages-${selectedChatId}-${Date.now()}`)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "messages",
           filter: `chat_session_id=eq.${selectedChatId}`,
         },
         (payload) => {
-          const newMsg = payload.new as Message;
-          setMessages((prev) => {
-            // Evitar duplicar si se envió optimistamente
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
+          if (payload.eventType === "INSERT") {
+            const newMsg = payload.new as Message;
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              const filtered = prev.filter(
+                (m) => !(m.id.startsWith("temp-") && m.content === newMsg.content && m.sender === newMsg.sender)
+              );
+              return [...filtered, newMsg];
+            });
+          }
         }
       )
       .subscribe();
 
-    // Limpiar canal de mensajes al cambiar de chat o desmontar
+    // Polling de Respaldo para Mensajes de la Sesión Activa (cada 2.5 segundos)
+    const messagesInterval = setInterval(() => {
+      fetchMessages();
+    }, 2500);
+
     return () => {
-      console.log("Limpiando canal de mensajes de la sesión", selectedChatId);
+      clearInterval(messagesInterval);
       supabase.removeChannel(messagesChannel);
     };
   }, [selectedChatId]);
@@ -270,7 +279,7 @@ export default function DashboardPage() {
     }
   }, [messages]);
 
-  // Enviar mensaje del repartidor
+  // Enviar mensaje del repartidor con actualización optimista
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !selectedChatId) return;
@@ -278,24 +287,43 @@ export default function DashboardPage() {
     const msgText = inputText.trim();
     setInputText("");
 
+    const optimisticMsg: Message = {
+      id: `temp-${Date.now()}-${Math.random()}`,
+      chat_session_id: selectedChatId,
+      sender: "repartidor",
+      content: msgText,
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+
     try {
       const supabase = createClient();
-      const { error } = await supabase
+      const { data: insertedMsg, error } = await supabase
         .from("messages")
         .insert({
           chat_session_id: selectedChatId,
           sender: "repartidor",
           content: msgText
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      if (insertedMsg) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === optimisticMsg.id ? insertedMsg : m))
+        );
+      }
     } catch (err) {
       console.error("Error al enviar mensaje:", err);
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
       setInputText(msgText);
     }
   };
 
-  // Finalizar chat activo (UPDATE chat_sessions SET status = 'cerrado')
+  // Finalizar chat activo
   const handleFinalizeChat = async () => {
     if (!selectedChatId) return;
 
@@ -308,27 +336,11 @@ export default function DashboardPage() {
 
       if (error) throw error;
       
-      // Remover localmente también
       setChats((prev) => prev.filter(c => c.id !== selectedChatId));
       setSelectedChatId(null);
     } catch (err) {
       console.error("Error al finalizar el chat:", err);
     }
-  };
-
-  // Dirección mockeada de acuerdo a referencias de calles locales
-  const getMockAddress = (clientName: string) => {
-    const name = clientName.toLowerCase();
-    if (name.includes("carlos")) {
-      return "Avenida Bolívar #142, Centro";
-    }
-    if (name.includes("valeria")) {
-      return "Calle Los Pinos #55, Barrio Pompeya";
-    }
-    if (name.includes("mateo")) {
-      return "Av. Las Américas #88, Barrio Pompeya";
-    }
-    return "Zona Centro, Entrega Express";
   };
 
   const filteredChats = chats.filter(chat => 
@@ -337,7 +349,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* 1. Columna Izquierda - Lista de Chats Activos (En móviles se oculta cuando hay un chat seleccionado) */}
+      {/* 1. Columna Izquierda - Lista de Chats Activos */}
       <section className={`${selectedChatId ? "hidden md:flex" : "flex"} w-full md:w-80 lg:w-96 border-r border-gray-900 flex-col bg-gray-950/40 shrink-0 h-full`}>
         {/* Buscador */}
         <div className="p-3 sm:p-4 border-b border-gray-900/60 shrink-0">
@@ -395,10 +407,12 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   
-                  <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1">
-                    <MapPin className="w-3 h-3 text-gold-500/60 shrink-0" />
-                    <span className="truncate">{getMockAddress(chat.customer_name)}</span>
-                  </div>
+                  {chat.customer_phone && (
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1">
+                      <Phone className="w-3 h-3 text-gold-500/60 shrink-0" />
+                      <span className="truncate">{chat.customer_phone}</span>
+                    </div>
+                  )}
                 </div>
               </button>
             ))
@@ -406,14 +420,13 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* 2. Columna Derecha - Conversación Activa (En móviles se muestra cuando hay chat seleccionado) */}
+      {/* 2. Columna Derecha - Conversación Activa */}
       <section className={`${!selectedChatId ? "hidden md:flex" : "flex"} flex-1 flex-col bg-gray-900/10 h-full overflow-hidden`}>
         {selectedChat ? (
           <>
             {/* Header Chat */}
             <div className="px-3.5 sm:px-6 py-3 sm:py-4.5 border-b border-gray-900 bg-dark-card/30 flex items-center justify-between shrink-0 gap-2">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                {/* Botón Volver (Móvil) */}
                 <button
                   onClick={() => setSelectedChatId(null)}
                   className="md:hidden p-1.5 text-gray-400 hover:text-gold-400 rounded-lg hover:bg-gray-800 shrink-0"
@@ -429,7 +442,6 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs sm:text-sm font-bold text-gray-100 truncate">{selectedChat.customer_name}</h3>
-                    {/* Botón Registrar Pedido (Fase 5) */}
                     <button
                       onClick={openOrderModal}
                       className="hidden xs:flex bg-gold-500 text-gray-900 font-bold hover:bg-gold-600 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] items-center gap-1 cursor-pointer shadow-sm active:scale-95 transition-all shrink-0"
@@ -438,18 +450,12 @@ export default function DashboardPage() {
                       <span>Registrar Pedido</span>
                     </button>
                   </div>
-                  <div className="flex items-center gap-2 sm:gap-4 mt-0.5">
-                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-400 truncate">
-                      <MapPin className="w-3 h-3 text-gold-500 shrink-0" />
-                      <span className="truncate">{getMockAddress(selectedChat.customer_name)}</span>
-                    </span>
-                    {selectedChat.customer_phone && (
-                      <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-gray-400">
-                        <Phone className="w-3 h-3 text-gold-500 shrink-0" />
-                        <span>{selectedChat.customer_phone}</span>
-                      </span>
-                    )}
-                  </div>
+                  {selectedChat.customer_phone && (
+                    <div className="flex items-center gap-1 mt-0.5 text-[10px] text-gray-400">
+                      <Phone className="w-3 h-3 text-gold-500 shrink-0" />
+                      <span>{selectedChat.customer_phone}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -527,7 +533,7 @@ export default function DashboardPage() {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={`Escribe un mensaje para ${selectedChat.customer_name}...`}
-                className="flex-1 bg-gray-900 border border-gray-805 rounded-xl px-4 py-3 text-xs text-gray-150 placeholder-gray-550 focus:outline-none focus:border-gold-500/50"
+                className="flex-1 bg-gray-900 border border-gray-805 rounded-xl px-4 py-3 text-xs text-gray-150 placeholder-gray-555 focus:outline-none focus:border-gold-500/50"
               />
               
               <button
@@ -554,11 +560,10 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Modal de Registro de Pedido (Fase 5) */}
+      {/* Modal de Registro de Pedido */}
       {isOrderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-dark-card border border-gray-800 rounded-3xl p-6.5 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Línea decorativa superior */}
             <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-gold-400 via-gold-500 to-gold-600" />
             
             <div className="flex items-center justify-between mb-5 pt-1">
@@ -670,7 +675,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Notificación Toast (Fase 5) */}
+      {/* Notificación Toast */}
       {showToast && (
         <div className="fixed bottom-6 right-6 z-50 bg-emerald-500 text-gray-950 px-5 py-3 rounded-2xl font-bold text-xs flex items-center gap-2.5 shadow-[0_4px_20px_rgba(16,185,129,0.35)] animate-in slide-in-from-bottom duration-300">
           <Check className="w-4 h-4 text-gray-950 stroke-3" />
