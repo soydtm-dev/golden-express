@@ -49,7 +49,6 @@ export default function RegisterPage() {
         setUserId(user.id);
         setEmail(user.email || "");
 
-        // Si ya existen datos parciales o metadata del usuario, pre-poblarlos
         if (user.user_metadata?.name) {
           setName(user.user_metadata.name);
         }
@@ -100,7 +99,6 @@ export default function RegisterPage() {
     try {
       const supabase = createClient();
 
-      // Guardar o actualizar la información del perfil en la tabla 'couriers'
       const { error } = await supabase
         .from("couriers")
         .upsert(
@@ -125,7 +123,6 @@ export default function RegisterPage() {
     } catch (err: any) {
       console.error("Error al guardar registro:", err);
       showToast(err.message || "Ocurrió un error al guardar tus datos de registro.", "error");
-    } finally {
       setSubmitting(false);
     }
   };
@@ -139,13 +136,13 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4 relative overflow-hidden">
       {/* Resplandores decorativos de fondo */}
-      <div className="absolute top-1/2 left-1/2 -z-10 h-[550px] w-[550px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-500/10 blur-[130px] pointer-events-none" />
-      <div className="absolute -top-40 -left-40 -z-10 h-[320px] w-[320px] rounded-full bg-gold-700/[0.05] blur-[110px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -z-10 h-137.5 w-137.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-500/10 blur-[130px] pointer-events-none" />
+      <div className="absolute -top-40 -left-40 -z-10 h-80 w-80 rounded-full bg-gold-700/5 blur-[110px] pointer-events-none" />
 
       {/* Tarjeta del Formulario de Registro */}
       <div className="w-full max-w-lg bg-dark-card border border-gold-500/20 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-md">
         {/* Adorno superior dorado */}
-        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-gold-400 via-gold-500 to-gold-600" />
+        <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-gold-400 via-gold-500 to-gold-600" />
 
         {/* Header */}
         <div className="text-center mb-8 flex flex-col items-center">
@@ -175,10 +172,29 @@ export default function RegisterPage() {
           )}
         </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-gold-500" />
-            <span className="text-xs text-gray-400 font-medium">Verificando tu cuenta...</span>
+        {submitting ? (
+          /* Pantalla de Carga durante el envío de datos */
+          <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative flex items-center justify-center">
+              <div className="w-14 h-14 border-4 border-gold-500/20 border-t-gold-500 rounded-full animate-spin shadow-[0_0_20px_rgba(212,175,55,0.3)]" />
+              <ShieldCheck className="w-5 h-5 text-gold-400 absolute animate-pulse" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider">Guardando Registro...</h3>
+              <p className="text-xs text-gray-400">Habilitando tu cuenta de repartidor en Golden Express</p>
+            </div>
+          </div>
+        ) : loading ? (
+          /* Pantalla de Carga inicial */
+          <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative flex items-center justify-center">
+              <div className="w-14 h-14 border-4 border-gold-500/20 border-t-gold-500 rounded-full animate-spin shadow-[0_0_20px_rgba(212,175,55,0.3)]" />
+              <Loader2 className="w-5 h-5 text-gold-400 absolute animate-spin" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider">Verificando Cuenta...</h3>
+              <p className="text-xs text-gray-400">Cargando datos de perfil</p>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleRegister} className="space-y-5">
@@ -255,18 +271,9 @@ export default function RegisterPage() {
                 disabled={submitting}
                 className="w-full bg-gold-500 text-gray-900 font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gold-600 active:scale-[0.98] transition-all cursor-pointer shadow-[0_4px_12px_rgba(245,158,11,0.15)] hover:shadow-[0_4px_20px_rgba(245,158,11,0.3)] disabled:opacity-55 disabled:cursor-not-allowed text-sm"
               >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Guardando tus datos...</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Completar Registro e Ingresar</span>
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                  </>
-                )}
+                <ShieldCheck className="w-4 h-4" />
+                <span>Completar Registro e Ingresar</span>
+                <ArrowRight className="w-4 h-4 ml-1" />
               </button>
 
               <button

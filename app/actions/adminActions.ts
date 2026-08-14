@@ -6,6 +6,7 @@ import { render } from "@react-email/render";
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import InviteEmail from "@/emails/InviteEmail";
+import ResetPasswordEmail from "@/emails/ResetPasswordEmail";
 
 export interface InviteResult {
   success: boolean;
@@ -108,12 +109,6 @@ export async function inviteCourier(formData: InviteCourierInput): Promise<Invit
 
     // Paso 3: Bloque de seguridad con ROLLBACK
     if (dbError) {
-      // =========================================================================
-      // ROLLBACK DE SEGURIDAD:
-      // Si la inserción en la base de datos ('couriers') falla, eliminamos al
-      // usuario recién creado en Supabase Auth mediante deleteUser(userId)
-      // para evitar inconsistencias y cuentas huérfanas en el sistema.
-      // =========================================================================
       console.error("Error al insertar en la tabla 'couriers'. Ejecutando ROLLBACK en Auth...", dbError);
       
       const { error: rollbackError } = await supabaseAdmin.auth.admin.deleteUser(userId);
@@ -136,12 +131,11 @@ export async function inviteCourier(formData: InviteCourierInput): Promise<Invit
     // Paso 5: Enviar el correo usando SMTP (o Resend como fallback)
     try {
       if (hasSmtpConfig) {
-        // Envío mediante servidor SMTP (Nodemailer)
         const smtpPort = Number(process.env.SMTP_PORT) || 587;
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
           port: smtpPort,
-          secure: smtpPort === 465, // true para puerto 465, false para 587 u otros
+          secure: smtpPort === 465,
           auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
@@ -157,7 +151,6 @@ export async function inviteCourier(formData: InviteCourierInput): Promise<Invit
           html: emailHtml,
         });
       } else if (hasResendConfig) {
-        // Envío mediante API de Resend
         const resend = new Resend(resendApiKey);
         const fromEmail = process.env.RESEND_FROM_EMAIL || "Golden Express <onboarding@resend.dev>";
         const { error: resendErr } = await resend.emails.send({
@@ -191,6 +184,199 @@ export async function inviteCourier(formData: InviteCourierInput): Promise<Invit
     return {
       success: false,
       message: err.message || "Ocurrió un error inesperado al procesar la invitación.",
+    };
+  }
+}
+
+/**
+ * Server Action para enviar un correo de recuperación de contraseña a un repartidor por su ID.
+ */
+export async function sendPasswordResetCourier(courierId: string, courierName?: string): Promise<InviteResult> {
+  if (!courierId || !courierId.trim()) {
+    return {
+      success: false,
+      message: "ID de repartidor no válido.",
+    };
+  }
+
+  const hasSmtpConfig = process.env.SMTP_HOST && process.env.SMTP_USER;
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const hasResendConfig = resendApiKey && resendApiKey !== "re_your_api_key_here";
+
+  if (!hasSmtpConfig && !hasResendConfig) {
+    return {
+      success: false,
+      message: "Falta configuración de correo SMTP o Resend en las variables de entorno.",
+    };
+  }
+
+  try {
+    const { data: userData, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(courierId);
+
+    if (getUserError || !userData?.user || !userData.user.email) {
+      console.error("Error al obtener usuario para recuperación:", getUserError);
+      return {
+        success: false,
+        message: "No se encontró una cuenta de correo asociada a este repartidor en Supabase Auth.",
+      };
+    }
+
+    return await requestPasswordResetByEmail(userData.user.email, courierName || userData.user.user_metadata?.name);
+  } catch (err: any) {
+    console.error("Excepción al enviar recuperación de contraseña:", err);
+    return {
+      success: false,
+      message: err.message || "Ocurrió un error inesperado al enviar el correo de recuperación.",
+    };
+  }
+}
+
+/**
+ * Server Action para solicitar la recuperación de contraseña directamente desde una dirección de correo (ej. desde el Login).
+ */
+export async function requestPasswordResetByEmail(email: string, courierName?: string): Promise<InviteResult> {
+  if (!email || !email.trim()) {
+    return {
+      success: false,
+      message: "Por favor ingresa tu dirección de correo electrónico.",
+    };
+  }
+
+  const hasSmtpConfig = process.env.SMTP_HOST && process.env.SMTP_USER;
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const hasResendConfig = resendApiKey && resendApiKey !== "re_your_api_key_here";
+
+  if (!hasSmtpConfig && !hasResendConfig) {
+    return {
+      success: false,
+      message: "Falta configuración de correo SMTP o Resend en las variables de entorno.",
+    };
+  }
+
+  try {
+    const targetEmail = email.trim();
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+    // Generar enlace seguro de recuperación (type: "recovery")
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email: targetEmail,
+      options: {
+        redirectTo: `${siteUrl}/auth/callback?next=/update-password`,
+      },
+    });
+
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error("Error al generar enlace de recuperación desde email:", linkError);
+      return {
+        success: false,
+        message: "No se encontró ninguna cuenta registrada asociada a este correo electrónico.",
+      };
+    }
+
+    const resetLink = linkData.properties.action_link;
+    const nameToDisplay = courierName || linkData.user?.user_metadata?.name || targetEmail.split("@")[0];
+
+    // Renderizar la plantilla React Email
+    const emailHtml = await render(ResetPasswordEmail({
+      resetLink: resetLink,
+      courierName: nameToDisplay,
+    }));
+
+    // Enviar el correo por SMTP o Resend
+    if (hasSmtpConfig) {
+      const smtpPort = Number(process.env.SMTP_PORT) || 587;
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      const fromEmail = process.env.SMTP_FROM || `"Golden Express" <${process.env.SMTP_USER}>`;
+
+      await transporter.sendMail({
+        from: fromEmail,
+        to: targetEmail,
+        subject: "Restablecimiento de Contraseña - Golden Express",
+        html: emailHtml,
+      });
+    } else if (hasResendConfig) {
+      const resend = new Resend(resendApiKey);
+      const fromEmail = process.env.RESEND_FROM_EMAIL || "Golden Express <onboarding@resend.dev>";
+      const { error: resendErr } = await resend.emails.send({
+        from: fromEmail,
+        to: [targetEmail],
+        subject: "Restablecimiento de Contraseña - Golden Express",
+        html: emailHtml,
+      });
+
+      if (resendErr) {
+        throw new Error(resendErr.message);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Hemos enviado el correo con el enlace de recuperación a ${targetEmail}.`,
+    };
+  } catch (err: any) {
+    console.error("Excepción al solicitar recuperación por correo:", err);
+    return {
+      success: false,
+      message: err.message || "Ocurrió un error inesperado al enviar el correo de recuperación.",
+    };
+  }
+}
+
+/**
+ * Server Action para eliminar permanentemente un repartidor/usuario.
+ */
+export async function deleteCourier(courierId: string): Promise<InviteResult> {
+  if (!courierId || !courierId.trim()) {
+    return {
+      success: false,
+      message: "ID de usuario/repartidor no válido.",
+    };
+  }
+
+  try {
+    await supabaseAdmin.from("chat_sessions").delete().eq("courier_id", courierId);
+    await supabaseAdmin.from("orders").delete().eq("courier_id", courierId);
+
+    const { error: dbDeleteError } = await supabaseAdmin
+      .from("couriers")
+      .delete()
+      .eq("id", courierId);
+
+    if (dbDeleteError) {
+      console.error("Error al eliminar el registro de la tabla couriers:", dbDeleteError);
+      return {
+        success: false,
+        message: `No se pudo eliminar el registro de la base de datos: ${dbDeleteError.message}`,
+      };
+    }
+
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(courierId);
+
+    if (authDeleteError) {
+      console.error("Aviso: Error al eliminar usuario de Supabase Auth:", authDeleteError);
+    }
+
+    revalidatePath("/dashboard/admin/users");
+
+    return {
+      success: true,
+      message: "Repartidor eliminado correctamente de la base de datos y de Supabase Auth.",
+    };
+  } catch (err: any) {
+    console.error("Excepción inesperada al eliminar repartidor:", err);
+    return {
+      success: false,
+      message: err.message || "Ocurrió un error inesperado al intentar eliminar el repartidor.",
     };
   }
 }

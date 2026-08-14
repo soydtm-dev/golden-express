@@ -6,7 +6,6 @@ import {
   UserPlus, 
   Search, 
   Mail, 
-  User, 
   Phone,
   Car, 
   Shield, 
@@ -15,11 +14,13 @@ import {
   Loader2, 
   Check, 
   AlertCircle,
-  Clock,
-  Compass
+  Compass,
+  Trash2,
+  AlertTriangle,
+  KeyRound
 } from "lucide-react";
 import { Courier } from "@/types";
-import { inviteCourier } from "@/app/actions/adminActions";
+import { inviteCourier, deleteCourier, sendPasswordResetCourier } from "@/app/actions/adminActions";
 
 interface UsersManagementClientProps {
   initialCouriers: Courier[];
@@ -32,9 +33,14 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form states
+  // Form states para invitación
   const [email, setEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // Estados para eliminación y restablecimiento de contraseña
+  const [courierToDelete, setCourierToDelete] = useState<Courier | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [resettingId, setResettingId] = useState<string | null>(null);
 
   // Toast notifications state
   const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" }>({
@@ -99,6 +105,50 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
     }
   };
 
+  // Manejador para enviar correo de restablecimiento de contraseña
+  const handleSendPasswordReset = async (courier: Courier) => {
+    setResettingId(courier.id);
+    try {
+      const result = await sendPasswordResetCourier(courier.id, courier.name);
+
+      if (!result.success) {
+        showToast(result.message, "error");
+        return;
+      }
+
+      showToast(result.message, "success");
+    } catch (err: any) {
+      console.error("Error al enviar correo de recuperación:", err);
+      showToast(err.message || "No se pudo enviar el correo de recuperación.", "error");
+    } finally {
+      setResettingId(null);
+    }
+  };
+
+  // Manejador para confirmar eliminación permanente de repartidor
+  const handleConfirmDelete = async () => {
+    if (!courierToDelete) return;
+
+    setDeleting(true);
+    try {
+      const result = await deleteCourier(courierToDelete.id);
+
+      if (!result.success) {
+        showToast(result.message, "error");
+        return;
+      }
+
+      setCouriers(prev => prev.filter(c => c.id !== courierToDelete.id));
+      showToast("Repartidor eliminado exitosamente de la base de datos y de Supabase Auth.", "success");
+      setCourierToDelete(null);
+    } catch (err: any) {
+      console.error("Error al eliminar repartidor:", err);
+      showToast(err.message || "No se pudo eliminar el repartidor.", "error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filteredCouriers = couriers.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.phone && c.phone.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -115,7 +165,7 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
             <span>Gestión de Personal</span>
           </h2>
           <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">
-            Administra los roles del sistema, invita nuevos repartidores y visualiza sus estados de conexión.
+            Administra los roles del sistema, invita nuevos repartidores, gestiona claves y elimina personal.
           </p>
         </div>
 
@@ -157,7 +207,7 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
           </div>
         ) : (
           <div className="flex-1 overflow-x-auto overflow-y-auto scrollbar-thin">
-            <table className="w-full text-left border-collapse min-w-162.5">
+            <table className="w-full text-left border-collapse min-w-200">
               <thead>
                 <tr className="border-b border-gray-900 bg-gray-950/30 text-[10px] font-bold text-gray-500 uppercase tracking-wider sticky top-0 backdrop-blur-md z-10">
                   <th className="px-4 sm:px-6 py-3.5 sm:py-4.5">Nombre</th>
@@ -165,6 +215,7 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
                   <th className="px-4 sm:px-6 py-3.5 sm:py-4.5">Vehículo Asignado</th>
                   <th className="px-4 sm:px-6 py-3.5 sm:py-4.5">Rol en Sistema</th>
                   <th className="px-4 sm:px-6 py-3.5 sm:py-4.5 text-center">Estado Conexión</th>
+                  <th className="px-4 sm:px-6 py-3.5 sm:py-4.5 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-900/60 bg-gray-900/10">
@@ -177,9 +228,9 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
                     <td className="px-4 sm:px-6 py-3.5 sm:py-4.5 whitespace-nowrap">
                       <div className="flex items-center gap-2.5 sm:gap-3">
                         <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-linear-to-tr from-gray-800 to-gray-700 border border-gray-700/30 flex items-center justify-center font-bold text-gray-300 text-xs">
-                          {courier.name.split(" ").map(n => n[0]).join("")}
+                          {courier.name ? courier.name.split(" ").map(n => n[0]).join("") : "U"}
                         </div>
-                        <span className="font-bold text-gray-250">{courier.name}</span>
+                        <span className="font-bold text-gray-250">{courier.name || "Sin nombre"}</span>
                       </div>
                     </td>
 
@@ -195,7 +246,7 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
                     <td className="px-4 sm:px-6 py-3.5 sm:py-4.5">
                       <div className="flex items-center gap-1.5 text-gray-400">
                         <Car className="w-3.5 h-3.5 text-gold-550/70" />
-                        <span>{courier.vehicle_info}</span>
+                        <span>{courier.vehicle_info || "Sin especificar"}</span>
                       </div>
                     </td>
 
@@ -235,6 +286,36 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
                         </span>
                       )}
                     </td>
+
+                    {/* Acciones */}
+                    <td className="px-4 sm:px-6 py-3.5 sm:py-4.5 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Botón Recuperar Contraseña */}
+                        <button
+                          onClick={() => handleSendPasswordReset(courier)}
+                          disabled={resettingId === courier.id}
+                          title="Enviar correo para recuperar contraseña"
+                          className="p-2 rounded-xl text-gold-400 hover:text-gold-300 hover:bg-gold-500/10 border border-gold-500/20 hover:border-gold-500/40 transition-all cursor-pointer inline-flex items-center gap-1 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {resettingId === courier.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-gold-500" />
+                          ) : (
+                            <KeyRound className="w-4 h-4" />
+                          )}
+                          <span className="hidden sm:inline">Recuperar Clave</span>
+                        </button>
+
+                        {/* Botón Eliminar Repartidor */}
+                        <button
+                          onClick={() => setCourierToDelete(courier)}
+                          title="Eliminar repartidor"
+                          className="p-2 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all cursor-pointer inline-flex items-center gap-1 text-xs font-semibold"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span className="hidden sm:inline">Eliminar</span>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -243,11 +324,10 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
         )}
       </div>
 
-      {/* Modal Dialog Form */}
+      {/* Modal Dialog Invitación */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-dark-card border border-gray-800 rounded-2xl sm:rounded-3xl p-5 sm:p-6.5 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Línea decorativa superior */}
             <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-gold-400 via-gold-500 to-gold-600" />
 
             <div className="flex items-center justify-between mb-4 sm:mb-5 pt-1">
@@ -273,7 +353,6 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
             )}
 
             <form onSubmit={handleSubmitInvite} className="space-y-4">
-              {/* Correo */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
                   Correo Electrónico <span className="text-red-500">*</span>
@@ -296,7 +375,6 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
                 </p>
               </div>
 
-              {/* Administrador */}
               <div className="bg-gray-900/60 border border-gray-800/80 rounded-xl p-3.5 flex items-start gap-3">
                 <div className="flex items-center h-5">
                   <input
@@ -318,7 +396,6 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
                 </div>
               </div>
 
-              {/* Botonera */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-900/60 mt-5">
                 <button
                   type="button"
@@ -343,6 +420,62 @@ export default function UsersManagementClient({ initialCouriers }: UsersManageme
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmación de Eliminación */}
+      {courierToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-dark-card border border-red-500/20 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-red-500 via-red-600 to-red-700" />
+
+            <div className="flex items-start gap-4 mb-4 pt-1">
+              <div className="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0 text-red-400">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-100">
+                  ¿Eliminar a {courierToDelete.name}?
+                </h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  Esta acción eliminará de forma permanente el perfil del usuario de la tabla <code className="text-gold-400 bg-gray-900 px-1 py-0.5 rounded">couriers</code> y borrará su cuenta de <strong className="text-gray-200">Supabase Auth</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-red-500/5 border border-red-500/15 p-3 rounded-xl mb-5 text-[11px] text-red-300">
+              ⚠️ Esta operación no se puede deshacer. El repartidor perderá el acceso inmediato a la plataforma.
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-900/60">
+              <button
+                type="button"
+                onClick={() => setCourierToDelete(null)}
+                disabled={deleting}
+                className="px-4 py-2 sm:py-2.5 rounded-xl border border-gray-800 text-gray-400 text-xs font-semibold hover:bg-gray-900/60 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                className="bg-red-500 text-gray-100 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold hover:bg-red-600 active:scale-95 transition-all shadow-[0_2px_10px_rgba(239,68,68,0.2)] flex items-center gap-1.5 disabled:opacity-55 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Eliminando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar Definitivamente</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
