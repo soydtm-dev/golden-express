@@ -49,8 +49,6 @@ export default function UpdatePasswordPage() {
 
         if (accessToken && refreshToken) {
           try {
-            // Desconectar cualquier usuario activo previo en el navegador (ej. administrador)
-            await supabase.auth.signOut();
             await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,

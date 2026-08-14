@@ -31,41 +31,54 @@ export default function AuthCallbackPage() {
         const hash = typeof window !== "undefined" ? window.location.hash : "";
         const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
         const code = searchParams.get("code");
+        const next = searchParams.get("next") || "/update-password";
 
-        // Si la URL contiene un token de invitación (#access_token=...) o código de autorización (?code=...)
-        if (hash.includes("access_token") || code) {
-          // CRÍTICO: Cerrar sesión previa de cualquier usuario activo en el navegador (ej. un administrador)
-          // para evitar que la nueva invitación sobreescriba los datos del usuario equivocado.
-          await supabase.auth.signOut();
+        // 1. Si hay un código PKCE (?code=...)
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) throw exchangeError;
+        } 
+        // 2. Si la URL contiene hash con tokens (#access_token=...&refresh_token=...)
+        else if (hash.includes("access_token")) {
+          const hashParams = new URLSearchParams(hash.substring(1));
+          const accessToken = hashParams.get("access_token");
+          const refreshToken = hashParams.get("refresh_token");
 
-          if (code) {
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            if (exchangeError) throw exchangeError;
-          } else if (hash) {
-            const hashParams = new URLSearchParams(hash.substring(1));
-            const accessToken = hashParams.get("access_token");
-            const refreshToken = hashParams.get("refresh_token");
-
-            if (accessToken && refreshToken) {
-              const { error: setSessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              });
-              if (setSessionError) throw setSessionError;
-            }
+          if (accessToken && refreshToken) {
+            const { error: setSessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (setSessionError) throw setSessionError;
           }
         }
 
-        // Verificar la sesión resultante del nuevo usuario invitado
+        // 3. Verificar si la sesión se estableció correctamente
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          router.push("/update-password");
+          router.push(next);
         } else {
-          router.push("/login");
+          // Suscripción de respaldo si event de autenticación tarda unos milisegundos
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+            if (s) {
+              subscription.unsubscribe();
+              router.push(next);
+            }
+          });
+
+          // Fallback por si la sesión no se establece en 2.5 segundos
+          setTimeout(async () => {
+            const { data: { session: checkSession } } = await supabase.auth.getSession();
+            if (checkSession) {
+              router.push(next);
+            } else {
+              router.push("/login");
+            }
+          }, 2500);
         }
       } catch (err: any) {
         console.error("Error al procesar el callback de autenticación:", err);
-        setErrorMsg(err.message || "Ocurrió un error al procesar la invitación.");
+        setErrorMsg(err.message || "Ocurrió un error al procesar el enlace de invitación.");
       }
     };
 
