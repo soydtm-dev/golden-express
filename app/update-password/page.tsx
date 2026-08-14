@@ -4,7 +4,18 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { KeyRound, Eye, EyeOff, Loader2, Sparkles, AlertCircle, Check, User, Phone, Car } from "lucide-react";
+import {
+  KeyRound,
+  Eye,
+  EyeOff,
+  Loader2,
+  Sparkles,
+  AlertCircle,
+  Check,
+  User,
+  Phone,
+  Car,
+} from "lucide-react";
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState("");
@@ -13,7 +24,11 @@ export default function UpdatePasswordPage() {
   const [phone, setPhone] = useState("");
   const [vehicleInfo, setVehicleInfo] = useState("");
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" }>({
+  const [toast, setToast] = useState<{
+    show: boolean;
+    message: string;
+    type: "success" | "error";
+  }>({
     show: false,
     message: "",
     type: "success",
@@ -26,7 +41,9 @@ export default function UpdatePasswordPage() {
       const supabase = createClient();
 
       if (typeof window !== "undefined" && window.location.hash) {
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const hashParams = new URLSearchParams(
+          window.location.hash.substring(1),
+        );
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
 
@@ -38,14 +55,19 @@ export default function UpdatePasswordPage() {
             });
             window.history.replaceState(null, "", window.location.pathname);
           } catch (err) {
-            console.error("Error estableciendo sesión desde hash en update-password:", err);
+            console.error(
+              "Error estableciendo sesión desde hash en update-password:",
+              err,
+            );
           }
         }
       }
 
       // Cargar datos preexistentes del perfil o metadatos si están disponibles
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user) {
           if (user.user_metadata?.name) setName(user.user_metadata.name);
 
@@ -85,7 +107,10 @@ export default function UpdatePasswordPage() {
     }
 
     if (password.length < 6) {
-      showToastMessage("La contraseña debe tener al menos 6 caracteres.", "error");
+      showToastMessage(
+        "La contraseña debe tener al menos 6 caracteres.",
+        "error",
+      );
       return;
     }
 
@@ -100,7 +125,10 @@ export default function UpdatePasswordPage() {
     }
 
     if (!vehicleInfo.trim()) {
-      showToastMessage("Por favor, ingresa la información de tu vehículo.", "error");
+      showToastMessage(
+        "Por favor, ingresa la información de tu vehículo.",
+        "error",
+      );
       return;
     }
 
@@ -108,11 +136,11 @@ export default function UpdatePasswordPage() {
 
     try {
       const supabase = createClient();
-      
+
       // 1. Actualizar la contraseña en Supabase Auth
       const { error: authError } = await supabase.auth.updateUser({
         password: password,
-        data: { name: name.trim() }
+        data: { name: name.trim() },
       });
 
       if (authError) {
@@ -120,10 +148,15 @@ export default function UpdatePasswordPage() {
       }
 
       // 2. Obtener el usuario autenticado
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        throw new Error("No se pudo verificar la sesión actual del usuario. Por favor vuelve a abrir el enlace de tu correo.");
+        throw new Error(
+          "No se pudo verificar la sesión actual del usuario. Por favor vuelve a abrir el enlace de tu correo.",
+        );
       }
 
       // 3. Preparar datos para la tabla 'couriers'
@@ -145,7 +178,10 @@ export default function UpdatePasswordPage() {
 
       // Si ocurrió un error y contenía is_admin (posible restricción de RLS), reintentar sin is_admin
       if (profileError && courierPayload.is_admin !== undefined) {
-        console.warn("Reintentando upsert de courier sin el campo is_admin debido a un aviso de permisos:", profileError);
+        console.warn(
+          "Reintentando upsert de courier sin el campo is_admin debido a un aviso de permisos:",
+          profileError,
+        );
         delete courierPayload.is_admin;
         const retryResult = await supabase
           .from("couriers")
@@ -157,47 +193,60 @@ export default function UpdatePasswordPage() {
         throw profileError;
       }
 
-      showToastMessage("¡Perfil y contraseña guardados con éxito! Redirigiendo...", "success");
+      showToastMessage(
+        "¡Perfil y contraseña guardados con éxito! Redirigiendo...",
+        "success",
+      );
 
       setTimeout(() => {
         router.push("/dashboard");
         router.refresh();
       }, 1500);
     } catch (err: any) {
-      const detailedMessage = 
-        err?.message || 
-        err?.error_description || 
-        err?.details || 
-        err?.hint || 
+      const detailedMessage =
+        err?.message ||
+        err?.error_description ||
+        err?.details ||
+        err?.hint ||
         (typeof err === "string" ? err : JSON.stringify(err));
 
       console.error("Error al actualizar la cuenta:", detailedMessage, err);
-      
-      const isFetchError = 
-        typeof detailedMessage === "string" && (
-          detailedMessage.includes("Failed to fetch") || 
-          err?.name === "AuthRetryableFetchError"
-        );
+
+      const isFetchError =
+        typeof detailedMessage === "string" &&
+        (detailedMessage.includes("Failed to fetch") ||
+          err?.name === "AuthRetryableFetchError");
 
       let userFriendlyMsg = detailedMessage;
       if (typeof detailedMessage === "string") {
         const lower = detailedMessage.toLowerCase();
         if (lower.includes("new password should be different")) {
-          userFriendlyMsg = "La nueva contraseña debe ser diferente a tu contraseña anterior.";
+          userFriendlyMsg =
+            "La nueva contraseña debe ser diferente a tu contraseña anterior.";
         } else if (lower.includes("password should be at least")) {
           userFriendlyMsg = "La contraseña debe tener al menos 6 caracteres.";
-        } else if (lower.includes("auth session missing") || lower.includes("session_not_found")) {
-          userFriendlyMsg = "Tu sesión ha expirado. Por favor vuelve a abrir el enlace de tu correo o solicita una nueva invitación.";
-        } else if (lower.includes("token has expired") || lower.includes("otp_expired")) {
-          userFriendlyMsg = "El enlace de invitación ha expirado. Por favor solicita un nuevo enlace.";
+        } else if (
+          lower.includes("auth session missing") ||
+          lower.includes("session_not_found")
+        ) {
+          userFriendlyMsg =
+            "Tu sesión ha expirado. Por favor vuelve a abrir el enlace de tu correo o solicita una nueva invitación.";
+        } else if (
+          lower.includes("token has expired") ||
+          lower.includes("otp_expired")
+        ) {
+          userFriendlyMsg =
+            "El enlace de invitación ha expirado. Por favor solicita un nuevo enlace.";
         }
       }
 
       showToastMessage(
         isFetchError
           ? "No se pudo establecer conexión con el servidor. Verifica tu conexión a internet o desactiva extensiones de privacidad/bloqueadores de anuncios (como Brave Shield)."
-          : (userFriendlyMsg && userFriendlyMsg !== "{}" ? userFriendlyMsg : "Error al actualizar la cuenta. Por favor, verifica que tu sesión no haya expirado."),
-        "error"
+          : userFriendlyMsg && userFriendlyMsg !== "{}"
+            ? userFriendlyMsg
+            : "Error al actualizar la cuenta. Por favor, verifica que tu sesión no haya expirado.",
+        "error",
       );
     } finally {
       setLoading(false);
@@ -207,13 +256,13 @@ export default function UpdatePasswordPage() {
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4 relative overflow-hidden">
       {/* Luces de fondo decorativas premium */}
-      <div className="absolute top-1/2 left-1/2 -z-10 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-500/10 blur-[120px] pointer-events-none" />
-      <div className="absolute -top-40 -right-40 -z-10 h-[300px] w-[300px] rounded-full bg-gold-700/[0.05] blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -z-10 h-125 w-125 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-500/10 blur-[120px] pointer-events-none" />
+      <div className="absolute -top-40 -right-40 -z-10 h-75 w-75 rounded-full bg-gold-700/5 blur-[100px] pointer-events-none" />
 
       {/* Tarjeta de Activación de Cuenta */}
       <div className="w-full max-w-lg bg-dark-card border border-gold-500/20 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-md">
         {/* Línea superior dorada decorativa */}
-        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-gold-400 via-gold-500 to-gold-600" />
+        <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-gold-400 via-gold-500 to-gold-600" />
 
         {/* Encabezado */}
         <div className="text-center mb-8 flex flex-col items-center">
@@ -234,7 +283,8 @@ export default function UpdatePasswordPage() {
             Golden Express
           </h1>
           <p className="text-xs text-gray-400">
-            Crea tu contraseña y completa los datos de tu perfil para activar tu cuenta.
+            Crea tu contraseña y completa los datos de tu perfil para activar tu
+            cuenta.
           </p>
         </div>
 
@@ -264,7 +314,11 @@ export default function UpdatePasswordPage() {
                 disabled={loading}
                 className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-300 transition-colors focus:outline-none"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>
