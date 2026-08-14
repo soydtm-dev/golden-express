@@ -49,6 +49,8 @@ export default function UpdatePasswordPage() {
 
         if (accessToken && refreshToken) {
           try {
+            // Desconectar cualquier usuario activo previo en el navegador (ej. administrador)
+            await supabase.auth.signOut();
             await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
@@ -63,7 +65,7 @@ export default function UpdatePasswordPage() {
         }
       }
 
-      // Cargar datos preexistentes del perfil o metadatos si están disponibles
+      // Cargar datos preexistentes del perfil del usuario invitado autenticado
       try {
         const {
           data: { user },
@@ -79,8 +81,8 @@ export default function UpdatePasswordPage() {
 
           if (courier) {
             if (courier.name) setName(courier.name);
-            if (courier.phone) setPhone(courier.phone);
-            if (courier.vehicle_info) setVehicleInfo(courier.vehicle_info);
+            if (courier.phone && courier.phone !== "Sin registro") setPhone(courier.phone);
+            if (courier.vehicle_info && courier.vehicle_info !== "Sin especificar") setVehicleInfo(courier.vehicle_info);
           }
         }
       } catch (e) {
@@ -137,7 +139,7 @@ export default function UpdatePasswordPage() {
     try {
       const supabase = createClient();
 
-      // 1. Actualizar la contraseña en Supabase Auth
+      // 1. Actualizar la contraseña en Supabase Auth para la cuenta invitada activa
       const { error: authError } = await supabase.auth.updateUser({
         password: password,
         data: { name: name.trim() },
@@ -159,7 +161,7 @@ export default function UpdatePasswordPage() {
         );
       }
 
-      // 3. Preparar datos para la tabla 'couriers'
+      // 3. Preparar datos para la tabla 'couriers' del usuario invitado (id = user.id)
       const courierPayload: Record<string, any> = {
         id: user.id,
         name: name.trim(),
@@ -179,7 +181,7 @@ export default function UpdatePasswordPage() {
       // Si ocurrió un error y contenía is_admin (posible restricción de RLS), reintentar sin is_admin
       if (profileError && courierPayload.is_admin !== undefined) {
         console.warn(
-          "Reintentando upsert de courier sin el campo is_admin debido a un aviso de permisos:",
+          "Reintentando upsert de courier sin el campo is_admin debido a aviso de permisos:",
           profileError,
         );
         delete courierPayload.is_admin;
